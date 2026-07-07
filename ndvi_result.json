@@ -1,0 +1,13 @@
+{
+  "region": "sample_image",
+  "ndvi": {
+    "mean": 0.2679,
+    "min": -1.0,
+    "max": 1.0
+  },
+  "land_cover": {
+    "vegetation_pct": 42.83,
+    "non_vegetation_pct": 57.17,
+    "threshold_used": 0.2
+  }
+}
