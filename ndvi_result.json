@@ -1,8 +1,9 @@
 {
   "id": 1,
+  "title": "تحليل جزر البهاما",
   "areaName": "Queen's Highway, Andros Town, Central Andros, جزر البهاما",
   "date": "2026-07-08",
-  "image": "",
+  "image": "ndvi_map.png",
   "ndvi": {
     "mean": 0.2679,
     "min": -1.0,

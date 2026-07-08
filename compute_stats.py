@@ -45,11 +45,16 @@ def compute_stats(image_path, area_id=1):
     vegetation_pct = round((vegetation_pixels / total_pixels) * 100, 2)
     non_vegetation_pct = round((non_vegetation_pixels / total_pixels) * 100, 2)
 
+    # Auto-generate title from detected area name
+    short_area = area_name.split("،")[-1].strip() if "،" in area_name else area_name.split(",")[-1].strip()
+    title = f"تحليل {short_area}"
+
     result = {
         "id": area_id,
+        "title": title,
         "areaName": area_name,
         "date": str(date.today()),
-        "image": "",
+        "image": "ndvi_map.png",
         "ndvi": {
             "mean": round(float(np.nanmean(ndvi)), 4),
             "min": round(float(np.nanmin(ndvi)), 4),
