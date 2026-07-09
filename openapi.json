@@ -1,0 +1,270 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Oman Lens AI Service",
+        "version": "0.4.0"
+    },
+    "paths": {
+        "/health": {
+            "get": {
+                "summary": "Health",
+                "operationId": "health_health_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/images": {
+            "get": {
+                "summary": "Images",
+                "operationId": "images_images_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/analyze": {
+            "post": {
+                "summary": "Analyze",
+                "operationId": "analyze_analyze_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AnalyzeRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AnalyzeResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AnalyzeRequest": {
+                "properties": {
+                    "image": {
+                        "type": "string",
+                        "title": "Image",
+                        "examples": [
+                            "sample_oman.tif"
+                        ]
+                    },
+                    "area_name": {
+                        "type": "string",
+                        "title": "Area Name",
+                        "default": "Unknown"
+                    },
+                    "area_id": {
+                        "type": "integer",
+                        "title": "Area Id",
+                        "default": 1
+                    },
+                    "acquired_date": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Acquired Date"
+                    },
+                    "red_band": {
+                        "type": "integer",
+                        "minimum": 1.0,
+                        "title": "Red Band",
+                        "default": 1
+                    },
+                    "nir_band": {
+                        "type": "integer",
+                        "minimum": 1.0,
+                        "title": "Nir Band",
+                        "default": 2
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "image"
+                ],
+                "title": "AnalyzeRequest"
+            },
+            "AnalyzeResponse": {
+                "properties": {
+                    "image_id": {
+                        "type": "string",
+                        "title": "Image Id"
+                    },
+                    "area_name_ar": {
+                        "type": "string",
+                        "title": "Area Name Ar"
+                    },
+                    "date": {
+                        "type": "string",
+                        "title": "Date"
+                    },
+                    "ndvi": {
+                        "$ref": "#/components/schemas/NdviStats"
+                    },
+                    "vegetation_percent": {
+                        "type": "number",
+                        "title": "Vegetation Percent"
+                    },
+                    "pixel_count": {
+                        "type": "integer",
+                        "title": "Pixel Count"
+                    },
+                    "latitude": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Latitude"
+                    },
+                    "longitude": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Longitude"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "image_id",
+                    "area_name_ar",
+                    "date",
+                    "ndvi",
+                    "vegetation_percent",
+                    "pixel_count",
+                    "latitude",
+                    "longitude"
+                ],
+                "title": "AnalyzeResponse",
+                "description": "Shared shape. These field names are the contract with the Web team."
+            },
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "NdviStats": {
+                "properties": {
+                    "mean": {
+                        "type": "number",
+                        "title": "Mean"
+                    },
+                    "min": {
+                        "type": "number",
+                        "title": "Min"
+                    },
+                    "max": {
+                        "type": "number",
+                        "title": "Max"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "mean",
+                    "min",
+                    "max"
+                ],
+                "title": "NdviStats"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    },
+                    "input": {
+                        "title": "Input"
+                    },
+                    "ctx": {
+                        "type": "object",
+                        "title": "Context"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            }
+        }
+    }
+}
