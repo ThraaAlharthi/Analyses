@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS analyses (
     latitude        DOUBLE PRECISION,   -- nullable: some rasters have no CRS
     longitude       DOUBLE PRECISION,
     raw             JSONB,              -- full /analyze response, verbatim
+    data_source     TEXT,               -- 'sentinel2_l2a' | 'synthetic_sample'
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

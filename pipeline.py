@@ -61,8 +61,9 @@ def run_pipeline(kml_path: str, user_id: int = 1, max_cloud: float = 5.0) -> int
                 INSERT INTO analyses
                   (user_id, image_id, area_name_ar, acquired_date,
                    ndvi_mean, ndvi_min, ndvi_max,
-                   vegetation_pct, pixel_count, latitude, longitude, raw)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   vegetation_pct, pixel_count, latitude, longitude, raw,
+                   data_source)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 RETURNING id
                 """,
                 (
@@ -70,6 +71,7 @@ def run_pipeline(kml_path: str, user_id: int = 1, max_cloud: float = 5.0) -> int
                     stats["ndvi"]["mean"], stats["ndvi"]["min"], stats["ndvi"]["max"],
                     stats["land_cover"]["vegetation_pct"], stats["pixel_count"],
                     stats["latitude"], stats["longitude"], Json(payload),
+                    "sentinel2_l2a",
                 ),
             )
             new_id = cur.fetchone()[0]

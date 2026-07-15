@@ -14,6 +14,7 @@ from __future__ import annotations
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from fpdf import FPDF
+from langchain_core.tools import tool
 import arabic_reshaper
 from bidi.algorithm import get_display
 
@@ -81,6 +82,7 @@ def render_report(data: dict, out_path: str) -> str:
     return out_path
 
 
+@tool
 def generate_report(analysis_id: int, out_path: str | None = None) -> str:
     """Read one analyses row by id, render it to an Arabic PDF."""
     out_path = out_path or f"report_{analysis_id}.pdf"
@@ -99,5 +101,5 @@ def generate_report(analysis_id: int, out_path: str | None = None) -> str:
 
 
 if __name__ == "__main__":
-    path = generate_report(4)   # row 4 from your table
+    path = generate_report.invoke({"analysis_id": 5})
     print(f"wrote {path}")
