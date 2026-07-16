@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>water_site</name>
+    <description>centre 23.780509, 57.785506 -- 1.0 km box</description>
+    <Placemark>
+      <name>water_site</name>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              57.781001,23.776004,0 57.790011,23.776004,0 57.790011,23.785014,0 57.781001,23.785014,0 57.781001,23.776004,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>

@@ -13,9 +13,10 @@ from datetime import date, timedelta
 import rasterio
 from rasterio.transform import from_bounds
 from dotenv import load_dotenv
+from shapely.geometry import Polygon
 from sentinelhub import (
     SHConfig, SentinelHubCatalog, SentinelHubRequest, DataCollection,
-    MimeType, BBox, CRS, bbox_to_dimensions,
+    MimeType, BBox, CRS, Geometry, bbox_to_dimensions,
 )
 
 from kml_reader import read_aoi
@@ -44,6 +45,24 @@ function evaluatePixel(sample) {
   return [sample.B04, sample.B08];
 }
 """
+
+
+def aoi_geometry(kml_path: str) -> Geometry:
+    """AOI polygon -> Sentinel Hub Geometry, preserving the actual shape.
+
+    THE BUG THIS FIXES: aoi_bbox() below reduces the polygon to its bounding
+    rectangle. An L-shaped AOI was analysed as a full square -- 2,830 pixels
+    (25%) from ground the user had drawn around. Squares hid it, because a
+    square IS its own bbox.
+
+    Sentinel Hub returns 0 for pixels outside the geometry. NDVI then computes
+    (0-0)/(0+0) = NaN, and compute_stats already excludes NaN from nanmean and
+    from pixel_count -- so the mask composes with existing code untouched.
+    """
+    aoi = read_aoi.invoke({"kml_path": kml_path})
+    # shapely wants (lon, lat); kml_reader gives (lat, lon).
+    poly = Polygon([(lon, lat) for lat, lon in aoi["coordinates"]])
+    return Geometry(poly, crs=CRS.WGS84)
 
 
 def aoi_bbox(kml_path: str) -> BBox:
@@ -83,6 +102,7 @@ def pick_clearest_scene(bbox: BBox, days_back: int = 365, max_cloud: float = 5.0
 def fetch_aoi_bands(kml_path: str, out_path: str = "aoi_scene.tif",
                     resolution: int = 10) -> dict:
     bbox = aoi_bbox(kml_path)
+    geometry = aoi_geometry(kml_path)
     scene_date, cloud = pick_clearest_scene(bbox)
     size = bbox_to_dimensions(bbox, resolution=resolution)
 
@@ -99,6 +119,7 @@ def fetch_aoi_bands(kml_path: str, out_path: str = "aoi_scene.tif",
         )],
         responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
         bbox=bbox,
+        geometry=geometry,   # <- masks to the polygon, not the rectangle
         size=size,
         config=config,
     )

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>lshape_test</name>
+    <description>L-shaped AOI: 75% of its bounding box. Test fixture.</description>
+    <Placemark>
+      <name>lshape_test</name>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              57.525744,23.304571,0 57.535744,23.304571,0 57.535744,23.309571,0 57.530744,23.309571,0 57.530744,23.314571,0 57.525744,23.314571,0 57.525744,23.304571,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>

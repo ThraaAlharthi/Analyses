@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>birkat_site</name>
+    <description>centre 23.309571, 57.530744 -- 1.0 km box</description>
+    <Placemark>
+      <name>birkat_site</name>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              57.526239,23.305066,0 57.535249,23.305066,0 57.535249,23.314076,0 57.526239,23.314076,0 57.526239,23.305066,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>
