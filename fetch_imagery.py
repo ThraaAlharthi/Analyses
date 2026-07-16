@@ -74,7 +74,13 @@ def aoi_bbox(kml_path: str) -> BBox:
 
 
 def pick_clearest_scene(bbox: BBox, days_back: int = 365, max_cloud: float = 5.0):
-    """Find the least-cloudy recent scene. Returns (date_str, cloud_pct).
+    """Find the least-cloudy recent scene. Returns (scene_id, date_str, cloud_pct).
+
+    The scene_id (e.g. S2B_MSIL2A_20260628T063619_N0512_R120_T40QEL) uniquely
+    identifies one satellite pass. Storing it is what makes a result
+    independently verifiable: anyone can load that exact scene in the
+    Copernicus Browser, apply our stored polygon, and recompute NDVI.
+    A date alone is ambiguous -- several satellites pass on the same day.
 
     Raises if nothing clear enough exists -- better an honest failure than
     silently analysing a cloudy scene.
@@ -96,18 +102,21 @@ def pick_clearest_scene(bbox: BBox, days_back: int = 365, max_cloud: float = 5.0
             f"No scene under {max_cloud}% cloud in the last {days_back} days."
         )
     best = min(usable, key=lambda s: s["properties"]["eo:cloud_cover"])
-    return best["properties"]["datetime"][:10], best["properties"]["eo:cloud_cover"]
+    return (best["id"],
+            best["properties"]["datetime"][:10],
+            best["properties"]["eo:cloud_cover"])
 
 
 def fetch_aoi_bands(kml_path: str, out_path: str = "aoi_scene.tif",
                     resolution: int = 10) -> dict:
     bbox = aoi_bbox(kml_path)
     geometry = aoi_geometry(kml_path)
-    scene_date, cloud = pick_clearest_scene(bbox)
+    scene_id, scene_date, cloud = pick_clearest_scene(bbox)
     size = bbox_to_dimensions(bbox, resolution=resolution)
 
     print(f"AOI bbox   : {list(bbox)}")
     print(f"best scene : {scene_date}  ({cloud}% cloud)")
+    print(f"scene id   : {scene_id}")
     print(f"raster size: {size[0]} x {size[1]} px at {resolution}m")
 
     request = SentinelHubRequest(
@@ -138,10 +147,12 @@ def fetch_aoi_bands(kml_path: str, out_path: str = "aoi_scene.tif",
         dst.write(nir, 2)
         dst.set_band_description(1, "red")
         dst.set_band_description(2, "nir")
-        dst.update_tags(ACQUISITION_DATE=scene_date, CLOUD_COVER=str(cloud))
+        dst.update_tags(ACQUISITION_DATE=scene_date, CLOUD_COVER=str(cloud),
+                        SCENE_ID=scene_id)
 
     print(f"wrote      : {out_path}")
-    return {"path": out_path, "date": scene_date, "cloud": cloud}
+    return {"path": out_path, "date": scene_date, "cloud": cloud,
+            "scene_id": scene_id}
 
 
 if __name__ == "__main__":

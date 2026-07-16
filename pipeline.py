@@ -11,6 +11,9 @@ area name and the boundary finally describe the same ground.
 """
 from __future__ import annotations
 
+from datetime import datetime
+from pathlib import Path
+
 import psycopg2
 from psycopg2.extras import Json
 
@@ -28,8 +31,15 @@ def run_pipeline(kml_path: str, user_id: int = 1, max_cloud: float = 5.0) -> int
     aoi = read_aoi.invoke({"kml_path": kml_path})
     print(f"AOI centre : {aoi['center']}  ({aoi['point_count']} boundary points)")
 
-    # 2. IMAGERY -- fetch the clearest recent scene covering that AOI
-    scene = fetch_aoi_bands(kml_path)
+    # 2. IMAGERY -- fetch the clearest recent scene covering that AOI.
+    #    Each analysis gets its own raster. fetch_aoi_bands used to default to
+    #    aoi_scene.tif, so every run overwrote the last: eight runs, one file,
+    #    and rows referencing imagery that no longer existed.
+    Path("scenes").mkdir(exist_ok=True)
+    stem = Path(kml_path).stem
+    ts = datetime.now().strftime("%Y%m%dT%H%M%S")
+    raster_path = f"scenes/{stem}_{ts}.tif"
+    scene = fetch_aoi_bands(kml_path, out_path=raster_path)
 
     # 3. ANALYSE -- our own band math. compute_stats reads the acquisition
     #    date from the GeoTIFF tag fetch_imagery wrote, so `date` is the real
@@ -46,7 +56,9 @@ def run_pipeline(kml_path: str, user_id: int = 1, max_cloud: float = 5.0) -> int
     }
     payload["source"] = {
         "mission": "Sentinel-2 L2A",
+        "scene_id": scene["scene_id"],      # verifiable in Copernicus Browser
         "scene_date": scene["date"],
+        "raster_path": scene["path"],
         "cloud_cover_pct": scene["cloud"],
         "max_cloud_allowed": max_cloud,
     }

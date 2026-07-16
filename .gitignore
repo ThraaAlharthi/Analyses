@@ -13,3 +13,4 @@ report_*.pdf
 .env
 aoi_scene.tif
 *.tif
+scenes/
