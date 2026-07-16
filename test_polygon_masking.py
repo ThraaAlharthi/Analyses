@@ -78,8 +78,10 @@ def test_geometry_is_actually_passed_to_the_request(monkeypatch):
             return {}
 
     monkeypatch.setattr(fetch_imagery, "SentinelHubRequest", FakeRequest)
+    # pick_clearest_scene returns (scene_id, date, cloud) since the
+    # verifiability change. A stale 2-tuple mock breaks the unpack.
     monkeypatch.setattr(fetch_imagery, "pick_clearest_scene",
-                        lambda *a, **k: ("2026-06-28", 0.0))
+                        lambda *a, **k: ("S2B_TEST_SCENE", "2026-06-28", 0.0))
 
     fetch_imagery.fetch_aoi_bands(LSHAPE, out_path="/tmp/_test_mask.tif")
 
