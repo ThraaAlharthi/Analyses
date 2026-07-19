@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>site5</name>
+    <description>centre 23.458922, 58.102976 -- 1.0 km box</description>
+    <Placemark>
+      <name>site5</name>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              58.098471,23.454417,0 58.107481,23.454417,0 58.107481,23.463427,0 58.098471,23.463427,0 58.098471,23.454417,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>

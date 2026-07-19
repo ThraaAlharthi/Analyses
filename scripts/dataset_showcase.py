@@ -14,12 +14,28 @@ examples = [json.loads(l) for l in open("data/to_write.jsonl", encoding="utf-8")
 cards = ""
 for ex in examples:
     d = json.loads(ex["input"])
-    n = d["ndvi"]
+
+    if ex.get("category") == "comparison":
+        obs = d["observations"]
+        rows = " &nbsp;&rarr;&nbsp; ".join(
+            f"{o['date']}: NDVI {o['ndvi_mean']}, veg {o['vegetation_percent']}%"
+            for o in obs
+        )
+        nums = (f"{rows} &nbsp;|&nbsp; change: NDVI {d['delta_ndvi_mean']}, "
+                f"veg {d['delta_vegetation_percent']} pts")
+        head = f"{d['area_name_ar']} &nbsp;(مقارنة)"
+        badge = "comparison"
+    else:
+        n = d["ndvi"]
+        nums = (f"NDVI mean {n['mean']} &nbsp; min {n['min']} &nbsp; max {n['max']}"
+                f" &nbsp;|&nbsp; veg {d['vegetation_percent']}% &nbsp; {d['pixel_count']:,} px")
+        head = f"{d['area_name_ar']} &nbsp;({d['date']})"
+        badge = "single date"
+
     cards += f"""
     <div class="card">
-      <div class="head">{d['area_name_ar']} &nbsp;({d['date']})</div>
-      <div class="nums" dir="ltr">NDVI mean {n['mean']} &nbsp; min {n['min']} &nbsp; max {n['max']}
-           &nbsp;|&nbsp; veg {d['vegetation_percent']}% &nbsp; {d['pixel_count']:,} px</div>
+      <div class="head">{head} <span class="badge">{badge}</span></div>
+      <div class="nums" dir="ltr">{nums}</div>
       <div class="out">{ex['output']}</div>
     </div>"""
 
@@ -38,6 +54,8 @@ html = f"""<!DOCTYPE html>
            background:#fff; padding:6px 10px; border-radius:4px;
            margin-bottom:10px; display:inline-block; }}
   .out  {{ font-size:15px; line-height:1.9; }}
+  .badge {{ font-size:10px; background:#5e813e; color:#fff; padding:2px 8px;
+           border-radius:10px; font-family:sans-serif; margin-right:8px; }}
   @media print {{ .card {{ break-inside: avoid; }} }}
 </style></head><body>
   <div class="banner"><h1>مجموعة بيانات التدريب</h1>
