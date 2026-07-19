@@ -14,3 +14,5 @@ report_*.pdf
 aoi_scene.tif
 *.tif
 scenes/
+dataset_showcase.html
+dataset_showcase.pdf
