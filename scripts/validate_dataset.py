@@ -92,7 +92,10 @@ def validate(path):
             if any(c in output for c in ARABIC_INDIC):
                 report.warn(ln, "output uses Arabic-Indic digits; number check cannot see them")
 
-            counts[classify(input_str, output)] += 1
+            # Trust the explicit category field if present; only fall back
+            # to guessing from text for older records that lack it.
+            cat = ex.get("category") or classify(input_str, output)
+            counts[cat] += 1
 
     return report, total, counts
 
