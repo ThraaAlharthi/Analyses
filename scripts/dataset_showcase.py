@@ -25,6 +25,15 @@ for ex in examples:
                 f"veg {d['delta_vegetation_percent']} pts")
         head = f"{d['area_name_ar']} &nbsp;(مقارنة)"
         badge = "comparison"
+    elif ex.get("category") == "refusal":
+        bits = []
+        if "cloud_cover_percent" in d:
+            bits.append(f"cloud {d['cloud_cover_percent']}%")
+        if "valid_pixel_ratio" in d:
+            bits.append(f"valid pixels {d['valid_pixel_ratio']}")
+        nums = " &nbsp;|&nbsp; ".join(bits) or "unanalysable input"
+        head = f"{d.get('area_name_ar', '?')} &nbsp;({d.get('date', '')})"
+        badge = "refusal"
     else:
         n = d["ndvi"]
         nums = (f"NDVI mean {n['mean']} &nbsp; min {n['min']} &nbsp; max {n['max']}"
@@ -56,6 +65,7 @@ html = f"""<!DOCTYPE html>
   .out  {{ font-size:15px; line-height:1.9; }}
   .badge {{ font-size:10px; background:#5e813e; color:#fff; padding:2px 8px;
            border-radius:10px; font-family:sans-serif; margin-right:8px; }}
+  .card:has(.badge:only-child) {{ }}
   @media print {{ .card {{ break-inside: avoid; }} }}
 </style></head><body>
   <div class="banner"><h1>مجموعة بيانات التدريب</h1>
