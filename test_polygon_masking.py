@@ -67,7 +67,7 @@ def test_geometry_is_actually_passed_to_the_request(monkeypatch):
 
         def get_data(self):
             import numpy as np
-            return [np.zeros((10, 10, 2), dtype="float32")]
+            return [np.zeros((10, 10, 4), dtype="float32")]  # red, nir, green, blue
 
         @staticmethod
         def input_data(**kwargs):

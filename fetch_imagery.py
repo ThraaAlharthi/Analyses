@@ -37,12 +37,14 @@ EVALSCRIPT = """
 //VERSION=3
 function setup() {
   return {
-    input: ["B04", "B08"],
-    output: { bands: 2, sampleType: "FLOAT32" }
+    input: ["B04", "B08", "B03", "B02"],
+    output: { bands: 4, sampleType: "FLOAT32" }
   };
 }
 function evaluatePixel(sample) {
-  return [sample.B04, sample.B08];
+  // band order: red, NIR, green, blue
+  // red+NIR stay first so compute_stats (band1=red, band2=NIR) is unaffected
+  return [sample.B04, sample.B08, sample.B03, sample.B02];
 }
 """
 
@@ -107,6 +109,31 @@ def pick_clearest_scene(bbox: BBox, days_back: int = 365, max_cloud: float = 5.0
             best["properties"]["eo:cloud_cover"])
 
 
+def _write_pngs(red, nir, green, blue, tif_path):
+    """Write two PNGs next to the data TIFF: true-colour and NDVI map.
+
+    These are for humans / vision models. Analysis always uses the float TIFF;
+    PNGs are lossy 8-bit and must never feed compute_stats.
+    """
+    import numpy as np
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    base = str(tif_path).rsplit(".", 1)[0]
+
+    # true colour: stack R,G,B, stretch to 0-1 for display
+    rgb = np.dstack([red, green, blue])
+    lo, hi = np.nanpercentile(rgb, 2), np.nanpercentile(rgb, 98)
+    rgb = np.clip((rgb - lo) / (hi - lo + 1e-9), 0, 1)
+    plt.imsave(f"{base}_truecolor.png", rgb)
+
+    # NDVI map: brown (bare) -> green (vegetation)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ndvi = (nir - red) / (nir + red)
+    plt.imsave(f"{base}_ndvi.png", ndvi, cmap="RdYlGn", vmin=-0.2, vmax=0.8)
+
+
 def fetch_aoi_bands(kml_path: str, out_path: str = "aoi_scene.tif",
                     resolution: int = 10) -> dict:
     bbox = aoi_bbox(kml_path)
@@ -133,22 +160,30 @@ def fetch_aoi_bands(kml_path: str, out_path: str = "aoi_scene.tif",
         config=config,
     )
 
-    data = request.get_data()[0]          # (height, width, 2)
+    data = request.get_data()[0]          # (height, width, 4): red, nir, green, blue
     red, nir = data[:, :, 0], data[:, :, 1]
+    green, blue = data[:, :, 2], data[:, :, 3]
 
     profile = {
         "driver": "GTiff", "height": size[1], "width": size[0],
-        "count": 2, "dtype": "float32", "crs": "EPSG:4326",
+        "count": 4, "dtype": "float32", "crs": "EPSG:4326",
         "transform": from_bounds(*list(bbox), width=size[0], height=size[1]),
         "compress": "deflate",
     }
     with rasterio.open(out_path, "w", **profile) as dst:
         dst.write(red, 1)
         dst.write(nir, 2)
+        dst.write(green, 3)
+        dst.write(blue, 4)
         dst.set_band_description(1, "red")
         dst.set_band_description(2, "nir")
+        dst.set_band_description(3, "green")
+        dst.set_band_description(4, "blue")
         dst.update_tags(ACQUISITION_DATE=scene_date, CLOUD_COVER=str(cloud),
                         SCENE_ID=scene_id)
+
+    # --- PNG previews (for display; NOT used for analysis) ---
+    _write_pngs(red, nir, green, blue, out_path)
 
     print(f"wrote      : {out_path}")
     return {"path": out_path, "date": scene_date, "cloud": cloud,
