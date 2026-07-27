@@ -63,6 +63,35 @@ def detect_area_name(lat: float, lon: float) -> str:
         return f"{lat:.4f}N, {lon:.4f}E"
 
 
+def describe_place(lat: float, lon: float) -> dict:
+    """Reverse-geocode to a STRUCTURED Arabic location breakdown.
+
+    Same Nominatim call as the area-name lookup, but keeps governorate,
+    region and country instead of only the most-specific name. Every value
+    is what the geocoding service returns -- nothing invented. Needs internet;
+    returns {} on any failure so callers degrade gracefully.
+    """
+    try:
+        geo = Nominatim(user_agent="omanlens-satellite-analyzer")
+        loc = geo.reverse(f"{lat}, {lon}", language="ar", timeout=10)
+        if not loc:
+            return {}
+        addr = loc.raw.get("address", {})
+        place = ""
+        for key in ("village", "town", "city", "municipality", "suburb"):
+            if addr.get(key):
+                place = addr[key]
+                break
+        return {
+            "place": place,
+            "governorate": addr.get("state", ""),
+            "region": addr.get("state_district", "") or addr.get("county", ""),
+            "country": addr.get("country", ""),
+        }
+    except Exception:
+        return {}
+
+
 def compute_stats(image_path, area_name=None, area_id=1,
                   acquired_date=None, red_band=1, nir_band=2, threshold=0.2):
     """area_name=None means: detect it from the image's own coordinates."""

@@ -17,7 +17,7 @@ from pathlib import Path
 import psycopg2
 from psycopg2.extras import Json
 
-from compute_stats import compute_stats
+from compute_stats import compute_stats, describe_place
 from fetch_imagery import fetch_aoi_bands
 from kml_reader import read_aoi
 
@@ -48,7 +48,12 @@ def run_pipeline(kml_path: str, user_id: int = 1, max_cloud: float = 5.0) -> int
     print(f"analysis   : {stats['areaName']}  NDVI mean {stats['ndvi']['mean']}")
 
     # 4. STORE -- AOI + provenance travel with the numbers
+    # structured location (place / governorate / country) from geocoding.
+    # fetched once here and stored, so reports regenerate offline.
+    location = describe_place(stats["latitude"], stats["longitude"])
+
     payload = dict(stats)
+    payload["location"] = location
     payload["aoi"] = {
         "center": aoi["center"],
         "coordinates": aoi["coordinates"],

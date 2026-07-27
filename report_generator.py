@@ -39,6 +39,26 @@ def cell_text(value) -> str:
     return s
 
 
+def _png_paths(data: dict):
+    """Derive the two preview PNGs from the stored raster path.
+
+    fetch_imagery writes scenes/<x>.tif plus <x>_truecolor.png and
+    <x>_ndvi.png alongside it. The row stores raster_path in raw.source,
+    so we swap the extension. Returns (truecolor, ndvi) or (None, None)
+    for older rows that predate the PNGs.
+    """
+    import os
+    raw = data.get("raw") or {}
+    src = raw.get("source") or {}
+    raster = src.get("raster_path")
+    if not raster:
+        return None, None
+    base = raster.rsplit(".", 1)[0]
+    tc, nd = f"{base}_truecolor.png", f"{base}_ndvi.png"
+    return (tc if os.path.exists(tc) else None,
+            nd if os.path.exists(nd) else None)
+
+
 def render_report(data: dict, out_path: str) -> str:
     """Pure renderer: analysis dict -> Arabic PDF at out_path. No database."""
     pdf = FPDF()
@@ -56,6 +76,31 @@ def render_report(data: dict, out_path: str) -> str:
 
     pdf.ln(28)
     pdf.set_text_color(*INK)
+
+    # --- background: coordinates ---
+    pdf.set_font("arabic", size=11)
+    pdf.set_x(15)
+    coords = f"{data['latitude']:.5f}, {data['longitude']:.5f}"
+    pdf.cell(90, 9, coords, align="L")
+    pdf.cell(90, 9, ar("الإحداثيات"), align="R")
+    pdf.ln(12)
+
+    # --- images: true-colour then NDVI map (stacked) ---
+    tc, nd = _png_paths(data)
+    img_w = 90                      # mm; small crops stay crisp at this size
+    x_centre = (210 - img_w) / 2
+    for path, caption in ((tc, "صورة حقيقية"),
+                          (nd, "خريطة مؤشر NDVI (أخضر=نبات، أحمر=جرداء)")):
+        if not path:
+            continue
+        pdf.set_font("arabic", size=11)
+        pdf.set_x(15)
+        pdf.cell(180, 8, ar(caption), align="C")
+        pdf.ln(9)
+        pdf.image(path, x=x_centre, w=img_w)
+        pdf.ln(4)
+
+    pdf.ln(2)
 
     # --- body rows: (Arabic label, value) ---
     rows = [

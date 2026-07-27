@@ -17,3 +17,5 @@ scenes/
 dataset_showcase.html
 dataset_showcase.pdf
 aois/site*.kml
+report_*.html
+location_info.py
