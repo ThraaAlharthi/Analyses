@@ -113,7 +113,7 @@ def main():
 
     print(f"\n{args.path}  --  {total} example(s)\n")
     print("  coverage:")
-    for b in ("single_date", "comparison", "refusal"):
+    for b in ('ndvi_explanation', 'land_cover_explanation', 'ndvi_qa', 'land_cover_qa', 'change_detection', 'insufficient_data', 'report_generation'):
         print(f"    {b:<12} {counts.get(b, 0):>3}")
 
     if report.warnings:
@@ -127,10 +127,15 @@ def main():
         return 1
 
     short = []
-    if counts.get("refusal", 0) < 5:
-        short.append(f"need >=5 refusals, have {counts.get('refusal', 0)}")
-    if counts.get("comparison", 0) < 5:
-        short.append(f"need >=5 comparisons, have {counts.get('comparison', 0)}")
+    # v0 gate: every category present at least once
+    for c in ('ndvi_explanation', 'land_cover_explanation', 'ndvi_qa', 'land_cover_qa', 'change_detection', 'insufficient_data', 'report_generation'):
+        if counts.get(c, 0) == 0:
+            short.append(f"category not yet present: {c}")
+    # spec: refusals (insufficient_data) should be >= 15% of the set
+    total = sum(counts.values())
+    if total and counts.get("insufficient_data", 0) / total < 0.15:
+        short.append(f"insufficient_data should be >=15% of set "
+                     f"(have {counts.get('insufficient_data', 0)}/{total})")
     if total < 60:
         short.append(f"need >=60 examples, have {total}")
 
