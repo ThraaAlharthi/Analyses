@@ -136,10 +136,19 @@ def render_html(data: dict, out_path: str) -> str:
                 border: 1px solid rgba(255,255,255,0.2); }}
   figcaption {{ font-size: 13px; color: #9fb3d0; margin-bottom: 8px; }}
   @media print {{
-    body {{ background: #12203A !important;
-            -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
-    .btnrow {{ display: none; }}
+    * {{ -webkit-print-color-adjust: exact !important;
+         print-color-adjust: exact !important; }}
+    body {{ background: #12203A !important; padding: 20px !important; }}
+    .card {{ background: rgba(255,255,255,0.04) !important;
+             border: 1px solid rgba(255,255,255,0.2) !important;
+             max-width: 100% !important; padding: 20px !important; }}
+    h1, td, .meta span, figcaption {{ color: #fff !important; }}
+    td.label, .meta .k {{ color: #cdd9ea !important; }}
+    .btnrow {{ display: none !important; }}
+    .images {{ display: flex !important; }}
     .images.hidden {{ display: flex !important; }}
+    figure img {{ width: 200px !important; }}
+    table {{ page-break-inside: avoid; }}
   }}
 </style></head>
 <body>
