@@ -1,43 +1,3 @@
-"""HTML report generator — modern, self-contained, real buttons.
-
-Why HTML instead of PDF: PDF can't do working buttons or reliable gradients,
-and PDF-to-PDF links break. HTML does all three natively. Images are embedded
-as base64 so the report is ONE self-contained file — nothing to lose or link.
-
-Two layers, same as the PDF version:
-  render_html(data, out_path)  -- pure: dict in, HTML out
-  generate_html_report(id)     -- reads the row, calls render_html
-"""
-from __future__ import annotations
-
-import base64
-import os
-
-import psycopg2
-from psycopg2.extras import RealDictCursor
-
-DB = "dbname=omanlens"
-
-
-def _png_data_uri(path):
-    """Read a PNG and return a base64 data URI, or None if missing."""
-    if not path or not os.path.exists(path):
-        return None
-    with open(path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode("ascii")
-    return f"data:image/png;base64,{b64}"
-
-
-def _png_paths(data):
-    raw = data.get("raw") or {}
-    src = raw.get("source") or {}
-    raster = src.get("raster_path")
-    if not raster:
-        return None, None
-    base = raster.rsplit(".", 1)[0]
-    return f"{base}_truecolor.png", f"{base}_ndvi.png"
-
-
 def render_html(data: dict, out_path: str) -> str:
     tc_path, nd_path = _png_paths(data)
     tc = _png_data_uri(tc_path)
@@ -59,12 +19,17 @@ def render_html(data: dict, out_path: str) -> str:
     region = data["area_name_ar"]
     date = str(data["acquired_date"])
 
-    # structured location from stored geocoding (place, governorate, country)
     loc = (data.get("raw") or {}).get("location") or {}
     loc_parts = [loc.get("place"), loc.get("governorate"), loc.get("country")]
-    location_str = "، ".join(x for x in loc_parts if x)   # skip empties
+    location_str = "، ".join(x for x in loc_parts if x)
 
-    # image section: only if we have them
+    # NEW: the AI-generated Arabic explanation, if available
+    explanation_ar = (data.get("raw") or {}).get("explanation_ar")
+    explanation_block = (
+        f'<div class="explanation"><p>{explanation_ar}</p></div>'
+        if explanation_ar else ""
+    )
+
     img_block = ""
     if tc or nd:
         imgs = ""
@@ -98,7 +63,6 @@ def render_html(data: dict, out_path: str) -> str:
   body {{
     margin: 0; padding: 40px;
     font-family: -apple-system, "SF Arabic", "Segoe UI", sans-serif;
-    background: linear-gradient(160deg, #12203A 0%, #28143 7 100%);
     background: linear-gradient(160deg, #12203A 0%, #281437 100%);
     color: #fff; min-height: 100vh;
   }}
@@ -121,6 +85,9 @@ def render_html(data: dict, out_path: str) -> str:
         font-size: 16px; }}
   td.val {{ text-align: left; direction: ltr; font-variant-numeric: tabular-nums; }}
   td.label {{ color: #cdd9ea; }}
+  .explanation {{ margin-top: 22px; padding: 16px 18px;
+                  background: rgba(255,255,255,0.03);
+                  border-radius: 10px; font-size: 15px; line-height: 1.8; }}
   .btnrow {{ display: flex; gap: 12px; justify-content: center; margin-top: 28px; }}
   button {{
     background: #ffffff; color: #12203A; border: none;
@@ -158,6 +125,7 @@ def render_html(data: dict, out_path: str) -> str:
     <div class="meta"><span class="k">الإحداثيات</span><span dir="ltr">{coords}</span></div>
     {location_line}
     <table>{table}</table>
+    {explanation_block}
     {img_block}
   </div>
 </body></html>"""
@@ -165,24 +133,3 @@ def render_html(data: dict, out_path: str) -> str:
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
     return out_path
-
-
-def generate_html_report(analysis_id: int, out_path: str | None = None) -> str:
-    out_path = out_path or f"report_{analysis_id}.html"
-    conn = psycopg2.connect(DB)
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT * FROM analyses WHERE id = %s", (analysis_id,))
-            row = cur.fetchone()
-    finally:
-        conn.close()
-    if row is None:
-        raise ValueError(f"No analysis with id {analysis_id}")
-    return render_html(row, out_path)
-
-
-if __name__ == "__main__":
-    import sys
-    aid = int(sys.argv[1]) if len(sys.argv) > 1 else 17
-    path = generate_html_report(aid)
-    print(f"wrote {path}")
