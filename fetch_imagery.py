@@ -75,7 +75,7 @@ def aoi_bbox(kml_path: str) -> BBox:
     return BBox(bbox=[min(lons), min(lats), max(lons), max(lats)], crs=CRS.WGS84)
 
 
-def pick_clearest_scene(bbox: BBox, days_back: int = 365, max_cloud: float = 5.0):
+def pick_clearest_scene(bbox: BBox, days_back: int = 365, max_cloud: float = 5.0, end_date=None):
     """Find the least-cloudy recent scene. Returns (scene_id, date_str, cloud_pct).
 
     The scene_id (e.g. S2B_MSIL2A_20260628T063619_N0512_R120_T40QEL) uniquely
@@ -87,7 +87,7 @@ def pick_clearest_scene(bbox: BBox, days_back: int = 365, max_cloud: float = 5.0
     Raises if nothing clear enough exists -- better an honest failure than
     silently analysing a cloudy scene.
     """
-    end = date.today()
+    end = end_date or date.today()
     start = end - timedelta(days=days_back)
     catalog = SentinelHubCatalog(config=config)
     scenes = list(catalog.search(
@@ -135,10 +135,10 @@ def _write_pngs(red, nir, green, blue, tif_path):
 
 
 def fetch_aoi_bands(kml_path: str, out_path: str = "aoi_scene.tif",
-                    resolution: int = 10) -> dict:
+                    resolution: int = 10, end_date=None) -> dict:
     bbox = aoi_bbox(kml_path)
     geometry = aoi_geometry(kml_path)
-    scene_id, scene_date, cloud = pick_clearest_scene(bbox)
+    scene_id, scene_date, cloud = pick_clearest_scene(bbox, end_date=end_date)
     size = bbox_to_dimensions(bbox, resolution=resolution)
 
     print(f"AOI bbox   : {list(bbox)}")
