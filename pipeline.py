@@ -1,20 +1,11 @@
-"""AOI analysis pipeline: KML -> fetch real imagery -> NDVI -> saved DB row.
-
-Wires together four pieces, each built and verified separately:
-  kml_reader.read_aoi   : where the user wants analysed
-  fetch_imagery         : real Sentinel-2 B04+B08 clipped to that AOI
-  compute_stats         : NDVI, computed locally in rasterio+numpy
-  Postgres analyses      : durable storage
-
-No stand-in raster. The imagery is fetched for the AOI itself, so the
-area name and the boundary finally describe the same ground.
-"""
+"""AOI analysis pipeline: KML -> fetch real imagery -> NDVI -> Arabic explanation -> saved DB row."""
 from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
 
 import psycopg2
+import requests
 from psycopg2.extras import Json
 
 from compute_stats import compute_stats, describe_place
@@ -22,38 +13,59 @@ from fetch_imagery import fetch_aoi_bands
 from kml_reader import read_aoi
 
 DB = "dbname=omanlens"
+AI_SERVICE_URL = "http://localhost:8000"  # serve_api.py, once running
+
+
+def get_arabic_explanation(stats: dict) -> str | None:
+    """Calls the fine-tuned model's serving API for the Arabic explanation.
+    Returns None (not a fake string) if the service is unreachable, so a
+    down AI service never silently produces fabricated Arabic text."""
+    payload = {
+        "area_name_ar": stats["areaName"],
+        "date": stats["date"],
+        "ndvi": stats["ndvi"],
+        "vegetation_percent": stats["land_cover"]["vegetation_pct"],
+    }
+    try:
+        resp = requests.post(
+            f"{AI_SERVICE_URL}/analyze/vegetation", json=payload, timeout=30
+        )
+        resp.raise_for_status()
+        return resp.json()["explanation_ar"]
+    except requests.RequestException as e:
+        print(f"WARNING: AI service unavailable ({e}); explanation not generated")
+        return None
 
 
 def run_pipeline(kml_path: str, user_id: int = 1, max_cloud: float = 5.0) -> int:
-    """Read an AOI, fetch imagery for it, analyse, store. Returns the row id."""
+    """Read an AOI, fetch imagery for it, analyse, explain, store. Returns the row id."""
 
     # 1. WHERE -- the area of interest
     aoi = read_aoi.invoke({"kml_path": kml_path})
     print(f"AOI centre : {aoi['center']}  ({aoi['point_count']} boundary points)")
 
-    # 2. IMAGERY -- fetch the clearest recent scene covering that AOI.
-    #    Each analysis gets its own raster. fetch_aoi_bands used to default to
-    #    aoi_scene.tif, so every run overwrote the last: eight runs, one file,
-    #    and rows referencing imagery that no longer existed.
+    # 2. IMAGERY
     Path("scenes").mkdir(exist_ok=True)
     stem = Path(kml_path).stem
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
     raster_path = f"scenes/{stem}_{ts}.tif"
     scene = fetch_aoi_bands(kml_path, out_path=raster_path)
 
-    # 3. ANALYSE -- our own band math. compute_stats reads the acquisition
-    #    date from the GeoTIFF tag fetch_imagery wrote, so `date` is the real
-    #    capture date, not date.today(). That closes a long-standing bug.
+    # 3. ANALYSE
     stats = compute_stats(scene["path"])
     print(f"analysis   : {stats['areaName']}  NDVI mean {stats['ndvi']['mean']}")
 
-    # 4. STORE -- AOI + provenance travel with the numbers
-    # structured location (place / governorate / country) from geocoding.
-    # fetched once here and stored, so reports regenerate offline.
+    # 3b. EXPLAIN -- Arabic explanation from the fine-tuned model, via serve_api.py
+    explanation_ar = get_arabic_explanation(stats)
+    if explanation_ar:
+        print(f"explanation: {explanation_ar[:60]}...")
+
+    # 4. STORE
     location = describe_place(stats["latitude"], stats["longitude"])
 
     payload = dict(stats)
     payload["location"] = location
+    payload["explanation_ar"] = explanation_ar
     payload["aoi"] = {
         "center": aoi["center"],
         "coordinates": aoi["coordinates"],
@@ -61,7 +73,7 @@ def run_pipeline(kml_path: str, user_id: int = 1, max_cloud: float = 5.0) -> int
     }
     payload["source"] = {
         "mission": "Sentinel-2 L2A",
-        "scene_id": scene["scene_id"],      # verifiable in Copernicus Browser
+        "scene_id": scene["scene_id"],
         "scene_date": scene["date"],
         "raster_path": scene["path"],
         "cloud_cover_pct": scene["cloud"],
