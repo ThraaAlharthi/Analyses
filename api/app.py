@@ -9,17 +9,30 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+import shutil
+import tempfile
+import uuid
+
+import psycopg2
+from fastapi import FastAPI, Request, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from psycopg2.extras import RealDictCursor
 from pydantic import BaseModel, Field
 
 from compute_stats import compute_stats, MissingBandError
-
+from pipeline import run_pipeline, DB
 SAMPLES_DIR = Path(os.getenv("SAMPLES_DIR", ".")).resolve()
 ALLOWED = {".tif", ".tiff"}
 
 app = FastAPI(title="Oman Lens AI Service", version="0.4.0")
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # TODO: restrict to the actual frontend origin once known
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ServiceError(Exception):
     status_code, code = 500, "internal_error"
@@ -128,3 +141,99 @@ def analyze(req: AnalyzeRequest):
         "latitude": raw["latitude"],
         "longitude": raw["longitude"],
     }
+class BadKMLFile(ServiceError):
+    status_code, code = 400, "bad_kml_file"
+
+
+class PipelineFailed(ServiceError):
+    status_code, code = 500, "pipeline_failed"
+
+
+class KMLAnalyzeResponse(BaseModel):
+    """Same contract as AnalyzeResponse, extended with the Arabic explanation
+    and the saved analysis row id."""
+    analysis_id: int
+    image_id: str
+    area_name_ar: str
+    date: str
+    ndvi: NdviStats
+    vegetation_percent: float
+    pixel_count: int
+    latitude: float | None
+    longitude: float | None
+    explanation_ar: str | None
+
+
+UPLOAD_DIR = Path(tempfile.gettempdir()) / "omanlens_uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
+
+
+def _fetch_analysis_row(analysis_id: int) -> dict:
+    conn = psycopg2.connect(DB)
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT * FROM analyses WHERE id = %s", (analysis_id,))
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        raise PipelineFailed(
+            f"Row {analysis_id} not found after pipeline run.",
+            "تعذّر العثور على نتيجة التحليل بعد المعالجة.",
+        )
+    return row
+
+
+@app.post("/analyze-kml", response_model=KMLAnalyzeResponse)
+async def analyze_kml(file: UploadFile = File(...)):
+    """Accepts a user-uploaded KML file, runs the full pipeline (fetch real
+    imagery, compute NDVI, get Arabic explanation, save to Postgres), and
+    returns the result in the same contract shape as /analyze."""
+
+    if not file.filename or not file.filename.lower().endswith(".kml"):
+        raise BadKMLFile(
+            "Only .kml files are accepted.", "يُقبل ملف بصيغة .kml فقط.",
+        )
+
+    # Save the upload to a unique temp path -- never trust the client's filename
+    saved_path = UPLOAD_DIR / f"{uuid.uuid4().hex}.kml"
+    try:
+        with saved_path.open("wb") as f:
+            shutil.copyfileobj(file.file, f)
+    finally:
+        file.file.close()
+
+    try:
+        analysis_id = run_pipeline(str(saved_path))
+    except Exception as e:
+        # run_pipeline can fail for many real reasons: no cloud-free imagery
+        # found, Sentinel Hub auth/network issues, an invalid/empty polygon,
+        # a Postgres connection problem. Surface it, don't swallow it.
+        raise PipelineFailed(
+            f"Pipeline failed: {e}",
+            "تعذّر إتمام التحليل. يُرجى التحقق من ملف المنطقة والمحاولة مجددًا.",
+        ) from e
+    finally:
+        saved_path.unlink(missing_ok=True)
+
+    row = _fetch_analysis_row(analysis_id)
+    raw = row.get("raw") or {}
+
+    return {
+        "analysis_id": analysis_id,
+        "image_id": row["image_id"],
+        "area_name_ar": row["area_name_ar"],
+        "date": str(row["acquired_date"]),
+        "ndvi": {
+            "mean": row["ndvi_mean"],
+            "min": row["ndvi_min"],
+            "max": row["ndvi_max"],
+        },
+        "vegetation_percent": row["vegetation_pct"],
+        "pixel_count": row["pixel_count"],
+        "latitude": row["latitude"],
+        "longitude": row["longitude"],
+        "explanation_ar": raw.get("explanation_ar"),
+    }
+
+
